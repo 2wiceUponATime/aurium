@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { signIn, signUp, confirmSignUp } from 'aws-amplify/auth';
-import { isUsernameTaken, validateUsername, reserveUsername } from '@/app/utils/username';
+import { isUsernameTaken, validateUsername, reserveUsername } from '@/utils/username';
 import styles from './CustomAuth.module.css';
 
 interface CustomAuthProps {
