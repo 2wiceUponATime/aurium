@@ -8,8 +8,7 @@ const schema = a.schema({
       priority: a.integer()
     })
     .authorization((allow) => [
-      allow.owner().to(['read', 'update', 'delete']),
-      allow.owner().to(['create'])
+      allow.authenticated().to(['read', 'update', 'create', 'delete']),
     ]),
   Username: a
     .model({
@@ -19,7 +18,7 @@ const schema = a.schema({
     .identifier(['username'])
     .authorization((allow) => [
       allow.publicApiKey().to(['read']),
-      allow.owner().to(['create', 'delete'])
+      allow.authenticated().to(['create', 'delete'])
     ])
 });
 
