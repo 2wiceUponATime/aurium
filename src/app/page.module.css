@@ -205,3 +205,49 @@
     transform: rotate(0deg);
   }
 }
+
+/* Todo List Styles */
+.todoContainer {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.todoTitle {
+    color: #333;
+    margin-bottom: 2rem;
+}
+
+.createTodoButton {
+    background: var(--amplify-colors-brand-primary-80);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-bottom: 1.5rem;
+    font-weight: 500;
+}
+
+.createTodoButton:hover {
+    background: var(--amplify-colors-brand-primary-90);
+}
+
+.todoList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.todoItem {
+    background: white;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.todoItem:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}

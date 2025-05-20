@@ -10,12 +10,14 @@ import TopBar from "./TopBar";
 import CustomAuth from "./CustomAuth";
 import styles from './AuthComponent.module.css';
 
+type User = { username: string; attributes?: { email?: string; preferred_username?: string } }
+
 interface AuthComponentProps {
-    children: React.ReactNode;
+    children: (user: User | null) => React.ReactNode;
 }
 
 export default function AuthComponent({ children }: AuthComponentProps) {
-    const [user, setUser] = useState<any>(null);
+    const [user, setUser] = useState<User | null>(null);
     const [needsUsername, setNeedsUsername] = useState(false);
     const [userAttributes, setUserAttributes] = useState<any>(null);
     const [showAuthenticator, setShowAuthenticator] = useState(false);
@@ -67,15 +69,12 @@ export default function AuthComponent({ children }: AuthComponentProps) {
             // First try to release the username while we still have a valid token
             if (username) {
                 try {
-                    await client.models.Username.delete({ username });
+                    await releaseUsername(username);
                 } catch (error) {
                     console.warn("Failed to release username:", error);
                     // Non-critical error, we can continue
                 }
             }
-
-            // Then sign out to clear any existing tokens
-            await signOut();
             
             // Finally delete the user account
             await deleteUser();
@@ -93,16 +92,13 @@ export default function AuthComponent({ children }: AuthComponentProps) {
         return <UsernameSetup onComplete={handleUsernameSetupComplete} />;
     }
 
-    // Combine user data with attributes for the TopBar
-    const userData = user ? {
-        ...user,
-        attributes: userAttributes
-    } : undefined;
-
     return (
         <div className={styles.authWrapper}>
             <TopBar 
-                user={userData}
+                user={user ? {
+                    ...user,
+                    attributes: userAttributes
+                } : undefined}
                 onSignOut={handleSignOut}
                 onSignInClick={() => setShowAuthenticator(true)}
                 onDeleteAccount={process.env.NODE_ENV === 'development' ? handleDeleteAccount : undefined}
@@ -115,18 +111,7 @@ export default function AuthComponent({ children }: AuthComponentProps) {
                     />
                 ) : (
                     <div className={styles.authenticatedContent}>
-                        {user ? children : (
-                            <div className={styles.loginPrompt}>
-                                <h2>Welcome to Aurium</h2>
-                                <p>Please sign in to continue</p>
-                                <button 
-                                    className={styles.loginButton}
-                                    onClick={() => setShowAuthenticator(true)}
-                                >
-                                    Sign In
-                                </button>
-                            </div>
-                        )}
+                        {children(user)}
                     </div>
                 )}
             </div>

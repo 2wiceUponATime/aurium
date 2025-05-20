@@ -5,10 +5,15 @@ const client = generateClient<Schema>();
 
 export async function isUsernameTaken(username: string): Promise<boolean> {
     try {
-        const result = await client.models.Username.get({ username });
-        return !!result;
+        const result = await client.models.Username.get(
+            { username },
+            { authMode: 'apiKey' }  // Explicitly use API key authorization
+        );
+        return !!result.data;
     } catch (error) {
-        console.error('Error checking username:', error);
+        console.group('Error checking username:');
+        console.error(error);
+        console.groupEnd();
         throw new Error('Failed to check username availability');
     }
 }
