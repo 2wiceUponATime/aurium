@@ -1,5 +1,6 @@
 import { preSignUp } from "@amplify/functions/preSignUp/resource";
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
+import { cleanupUserData } from "@amplify/functions/cleanupUserData/resource";
 
 const schema = a.schema({
   Todo: a
@@ -22,7 +23,8 @@ const schema = a.schema({
       allow.publicApiKey().to(['read'])
     ])
 }).authorization((allow) => [
-  allow.resource(preSignUp).to(['query', 'mutate'])
+  allow.resource(preSignUp).to(['query', 'mutate']),
+  allow.resource(cleanupUserData).to(['query', 'mutate'])
 ]);
 
 export type Schema = ClientSchema<typeof schema>;

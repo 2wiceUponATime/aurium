@@ -1,5 +1,6 @@
 import { defineAuth } from "@aws-amplify/backend";
 import { preSignUp } from "@amplify/functions/preSignUp/resource";
+import { cleanupUserData } from "@amplify/functions/cleanupUserData/resource";
 
 /**
  * Define and configure your auth resource
@@ -18,5 +19,8 @@ export const auth = defineAuth({
       mutable: false,
     },
   },
-  access: (allow) => [allow.resource(preSignUp).to(["manageUsers"])],
+  access: (allow) => [
+    allow.resource(preSignUp).to(["manageUsers"]),
+    allow.resource(cleanupUserData).to(["getUser"]),
+  ],
 });
