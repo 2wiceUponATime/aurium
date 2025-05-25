@@ -8,7 +8,17 @@ import { cleanupUserData } from "@amplify/functions/cleanupUserData/resource";
  */
 export const auth = defineAuth({
   loginWith: {
-    email: true,
+    email: {
+      verificationEmailStyle: "CODE",
+      verificationEmailSubject: "Confirm your Aurium account",
+      verificationEmailBody: (createCode) =>
+        `Use this code to verify your email: ${createCode()}`,
+      userInvitation: {
+        emailSubject: "Welcome to Aurium!",
+        emailBody: (user, code) =>
+          `We're happy to have you! You can now login with username ${user()} and temporary password ${code()}.`,
+      },
+    },
   },
   triggers: {
     preSignUp,

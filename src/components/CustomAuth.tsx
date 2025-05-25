@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { signIn, signUp, confirmSignUp, getCurrentUser, fetchUserAttributes } from 'aws-amplify/auth';
+import { signIn, signUp, confirmSignUp, getCurrentUser, fetchUserAttributes, resetPassword, confirmResetPassword } from 'aws-amplify/auth';
 import styles from './CustomAuth.module.css';
 
 const preSignUpPrefix = 'PreSignUp failed with error ';
@@ -16,16 +16,20 @@ interface FormData {
     password: string;
     code?: string;
     username: string;
+    newPassword?: string;
 }
 
 export default function CustomAuth({ onClose, onSuccess }: CustomAuthProps) {
     const [isSignUp, setIsSignUp] = useState(false);
     const [needsConfirmation, setNeedsConfirmation] = useState(false);
+    const [isForgotPassword, setIsForgotPassword] = useState(false);
+    const [isResetConfirmation, setIsResetConfirmation] = useState(false);
     const [formData, setFormData] = useState<FormData>({
         email: '',
         password: '',
         username: '',
-        code: ''
+        code: '',
+        newPassword: ''
     });
     const [error, setError] = useState('');
     const [isCheckingUsername, setIsCheckingUsername] = useState(false);
@@ -57,7 +61,29 @@ export default function CustomAuth({ onClose, onSuccess }: CustomAuthProps) {
         setError('');
 
         try {
-            if (needsConfirmation) {
+            if (isForgotPassword) {
+                if (!isResetConfirmation) {
+                    // Request password reset
+                    await resetPassword({
+                        username: formData.email
+                    });
+                    setIsResetConfirmation(true);
+                    setError('Check your email for a reset code');
+                } else {
+                    // Confirm password reset
+                    await confirmResetPassword({
+                        username: formData.email,
+                        confirmationCode: formData.code || '',
+                        newPassword: formData.newPassword || ''
+                    });
+                    // After successful reset, try to sign in
+                    await signIn({
+                        username: formData.email,
+                        password: formData.newPassword || ''
+                    });
+                    onSuccess();
+                }
+            } else if (needsConfirmation) {
                 await confirmSignUp({
                     username: formData.email,
                     confirmationCode: formData.code || ''
@@ -127,12 +153,62 @@ export default function CustomAuth({ onClose, onSuccess }: CustomAuthProps) {
                 </button>
                 
                 <div className={styles.header}>
-                    <h2>{needsConfirmation ? 'Confirm Sign Up' : (isSignUp ? 'Create Account' : 'Sign In')}</h2>
+                    <h2>
+                        {isForgotPassword 
+                            ? (isResetConfirmation ? 'Reset Password' : 'Forgot Password')
+                            : (needsConfirmation 
+                                ? 'Confirm Sign Up' 
+                                : (isSignUp ? 'Create Account' : 'Sign In'))}
+                    </h2>
                     {error && <p className={styles.error}>{error}</p>}
                 </div>
 
                 <form onSubmit={handleSubmit} className={styles.form}>
-                    {needsConfirmation ? (
+                    {isForgotPassword ? (
+                        <>
+                            <div className={styles.formGroup}>
+                                <label htmlFor="email">Email</label>
+                                <input
+                                    type="email"
+                                    id="email"
+                                    name="email"
+                                    value={formData.email}
+                                    onChange={handleChange}
+                                    placeholder="Enter your email"
+                                    required
+                                />
+                            </div>
+
+                            {isResetConfirmation && (
+                                <>
+                                    <div className={styles.formGroup}>
+                                        <label htmlFor="code">Reset Code</label>
+                                        <input
+                                            type="text"
+                                            id="code"
+                                            name="code"
+                                            value={formData.code}
+                                            onChange={handleChange}
+                                            placeholder="Enter code from email"
+                                            required
+                                        />
+                                    </div>
+                                    <div className={styles.formGroup}>
+                                        <label htmlFor="newPassword">New Password</label>
+                                        <input
+                                            type="password"
+                                            id="newPassword"
+                                            name="newPassword"
+                                            value={formData.newPassword}
+                                            onChange={handleChange}
+                                            placeholder="Enter new password"
+                                            required
+                                        />
+                                    </div>
+                                </>
+                            )}
+                        </>
+                    ) : needsConfirmation ? (
                         <div className={styles.formGroup}>
                             <label htmlFor="code">Confirmation Code</label>
                             <input
@@ -190,6 +266,21 @@ export default function CustomAuth({ onClose, onSuccess }: CustomAuthProps) {
                                     required
                                 />
                             </div>
+
+                            {!isSignUp && !needsConfirmation && (
+                                <div className={styles.forgotPassword}>
+                                    <button
+                                        type="button"
+                                        className={styles.forgotPasswordButton}
+                                        onClick={() => {
+                                            setIsForgotPassword(true);
+                                            setError('');
+                                        }}
+                                    >
+                                        Forgot Password?
+                                    </button>
+                                </div>
+                            )}
                         </>
                     )}
 
@@ -199,20 +290,43 @@ export default function CustomAuth({ onClose, onSuccess }: CustomAuthProps) {
                         disabled={isCheckingUsername}
                     >
                         {isCheckingUsername ? 'Checking username...' : 
-                         (needsConfirmation ? 'Confirm' : 
-                          (isSignUp ? 'Sign Up' : 'Sign In'))}
+                         (isForgotPassword 
+                            ? (isResetConfirmation ? 'Reset Password' : 'Send Reset Code')
+                            : (needsConfirmation ? 'Confirm' : 
+                               (isSignUp ? 'Sign Up' : 'Sign In')))}
                     </button>
                 </form>
 
-                {!needsConfirmation && (
+                {!needsConfirmation && !isForgotPassword && (
                     <div className={styles.footer}>
                         <p>
                             {isSignUp ? 'Already have an account?' : "Don't have an account?"}
                             <button
                                 className={styles.switchButton}
-                                onClick={() => setIsSignUp(!isSignUp)}
+                                onClick={() => {
+                                    setIsSignUp(!isSignUp);
+                                    setError('');
+                                }}
                             >
                                 {isSignUp ? 'Sign In' : 'Sign Up'}
+                            </button>
+                        </p>
+                    </div>
+                )}
+
+                {isForgotPassword && (
+                    <div className={styles.footer}>
+                        <p>
+                            Remember your password?
+                            <button
+                                className={styles.switchButton}
+                                onClick={() => {
+                                    setIsForgotPassword(false);
+                                    setIsResetConfirmation(false);
+                                    setError('');
+                                }}
+                            >
+                                Sign In
                             </button>
                         </p>
                     </div>
