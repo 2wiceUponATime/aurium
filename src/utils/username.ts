@@ -14,32 +14,38 @@ Amplify.configure(resourceConfig, libraryOptions);
 
 const client = generateClient<Schema>();
 
-async function getUserData(username: string, userPoolId: string): Promise<Model<'UserData'> | null> {
+async function getDataByUsername(username: string, userPoolId: string): Promise<Model<'UserData'> | null> {
     const result = await client.models.UserData.list({
         filter: {
             username: { eq: username }
         }
     });
     if (result.errors) {
-        throw new Error(`Failed to get user data: ${result.errors.join('\n')}`);
+        throw new Error(`Failed to get user data of ${username}: ${result.errors.join('\n')}`);
     }
     if (!result.data || !result.data[0]) {
         return null;
     }
     const userData = result.data[0];
+    if (!(await userExists(userData.userId, userPoolId))) {
+        await client.models.UserData.delete({ userId: userData.userId });
+        return null;
+    }
+    return userData;
+}
+
+export async function userExists(userId: string, userPoolId: string): Promise<boolean> {
     try {
-        // Try to get the user from Cognito to verify they exist
         const cognitoClient = new CognitoIdentityProviderClient();
         await cognitoClient.send(new AdminGetUserCommand({
             UserPoolId: userPoolId,
-            Username: userData.userId
+            Username: userId
         }));
-        return userData;
+        return true;
     } catch (error) {
-        // If user doesn't exist in Cognito, delete the record
         if (error instanceof Error && error.name === 'UserNotFoundException') {
-            await client.models.UserData.delete({ userId: userData.userId });
-            return null;
+            await client.models.UserData.delete({ userId });
+            return false;
         }
         throw error;
     }
@@ -53,7 +59,7 @@ function normalizeUsername(username: string): string {
 export async function isUsernameTaken(username: string, userPoolId: string): Promise<boolean> {
     try {
         const normalizedUsername = normalizeUsername(username);
-        const result = await getUserData(normalizedUsername, userPoolId);
+        const result = await getDataByUsername(normalizedUsername, userPoolId);
         return !!result;
     } catch (error) {
         console.group('Error checking username:');
@@ -66,10 +72,22 @@ export async function isUsernameTaken(username: string, userPoolId: string): Pro
 export async function reserveUsername(username: string, userId: string): Promise<void> {
     try {
         const normalizedUsername = normalizeUsername(username);
-        await client.models.UserData.create({
-            username: normalizedUsername,
-            userId
-        });
+        try {
+            await client.models.UserData.create({
+                userId,
+                username: normalizedUsername,
+                aurium: 0
+            });
+        } catch (error) {
+            if (error instanceof Error && error.name === 'ConflictException') {
+                await client.models.UserData.update({
+                    userId,
+                    username: normalizedUsername
+                });
+            } else {
+                throw error;
+            }
+        }
     } catch (error) {
         console.error('Error reserving username:', error);
         throw new Error('Failed to reserve username');
@@ -79,7 +97,7 @@ export async function reserveUsername(username: string, userId: string): Promise
 export async function releaseUsername(username: string, userPoolId: string): Promise<void> {
     try {
         const normalizedUsername = normalizeUsername(username);
-        const userData = await getUserData(normalizedUsername, userPoolId);
+        const userData = await getDataByUsername(normalizedUsername, userPoolId);
         if (!userData) return;
         await client.models.UserData.delete({
             userId: userData.userId

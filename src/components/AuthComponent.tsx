@@ -16,6 +16,8 @@ export default function AuthComponent({ children }: AuthComponentProps) {
     const [user, setUser] = useState<User | null>(null);
     const [userAttributes, setUserAttributes] = useState<any>(null);
     const [showAuthenticator, setShowAuthenticator] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deleteConfirmation, setDeleteConfirmation] = useState('');
 
     useEffect(() => {
         checkUser();
@@ -46,7 +48,11 @@ export default function AuthComponent({ children }: AuthComponentProps) {
     }
 
     async function handleDeleteAccount() {
-        
+        setShowDeleteConfirm(true);
+        setDeleteConfirmation('');
+    }
+
+    async function confirmDeleteAccount() {
         try {
             // Finally delete the user account
             await deleteUser();
@@ -57,6 +63,8 @@ export default function AuthComponent({ children }: AuthComponentProps) {
             console.error("Error deleting account:", error);
             // Re-throw to let the UI handle the error
             throw error;
+        } finally {
+            setShowDeleteConfirm(false);
         }
     }
 
@@ -69,8 +77,47 @@ export default function AuthComponent({ children }: AuthComponentProps) {
                 } : undefined}
                 onSignOut={handleSignOut}
                 onSignInClick={() => setShowAuthenticator(true)}
-                onDeleteAccount={process.env.NODE_ENV === 'development' ? handleDeleteAccount : undefined}
+                onDeleteAccount={handleDeleteAccount}
             />
+            {showDeleteConfirm && (
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modal}>
+                        <h3>Delete Account</h3>
+                        <p>Are you sure you want to delete your account? This action cannot be undone.</p>
+                        <div className={styles.confirmationInput}>
+                            <label htmlFor="deleteConfirmation">
+                                To confirm, type "delete" below:
+                            </label>
+                            <input
+                                id="deleteConfirmation"
+                                type="text"
+                                value={deleteConfirmation}
+                                onChange={(e) => setDeleteConfirmation(e.target.value)}
+                                placeholder="Type 'delete' to confirm"
+                                className={styles.modalInput}
+                            />
+                        </div>
+                        <div className={styles.modalActions}>
+                            <button 
+                                className={styles.modalButton}
+                                onClick={() => {
+                                    setShowDeleteConfirm(false);
+                                    setDeleteConfirmation('');
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                className={`${styles.modalButton} ${styles.modalButtonDanger}`}
+                                onClick={confirmDeleteAccount}
+                                disabled={deleteConfirmation.toLowerCase() !== 'delete'}
+                            >
+                                Delete Account
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             <div className={styles.authContent}>
                 {showAuthenticator ? (
                     <CustomAuth

@@ -15,7 +15,7 @@ const schema = a.schema({
     .model({
       userId: a.string().required(),
       username: a.string().required(),
-      aurium: a.float().default(0)
+      aurium: a.float().required().default(0)
     })
     .identifier(['userId'])
     .authorization((allow) => [

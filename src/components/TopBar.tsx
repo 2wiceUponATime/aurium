@@ -60,7 +60,7 @@ export default function TopBar({ user, onSignOut, onSignInClick, onDeleteAccount
                       className={`${styles.menuItem} ${styles.menuItemDanger}`}
                       onClick={onDeleteAccount}
                     >
-                      Delete Account (Dev Only)
+                      Delete Account
                     </button>
                   )}
                 </div>
