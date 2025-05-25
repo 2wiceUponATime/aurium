@@ -3,4 +3,4 @@ description:
 globs: 
 alwaysApply: true
 ---
-Use 4 spaces for indentation. In most cases, keep code width 80 characters or under. Place all code in ./src/app (@/app) or ./amplify (@/amplify, with @/amplify/outputs mapped to ./amplify_outputs.json). Components should be put in ./src/components (@/components) and utilities should be put in ./src/utils (@/utils).
+Use 4 spaces for indentation. In most cases, keep code width 80 characters or under. Place all code in ./src/app (@/app) or ./amplify (@/amplify, with @/amplify/outputs mapped to ./amplify_outputs.json). Components should be put in ./src/components (@/components) and utilities should be put in ./src/utils (@/utils). Avoid leaving trailing spaces after generated code.

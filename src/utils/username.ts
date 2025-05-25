@@ -1,15 +1,60 @@
-import { generateClient } from "aws-amplify/data";
-import type { Schema } from "@amplify/data/resource";
+import { generateClient } from "aws-amplify/api";
+import { type DataClientEnv, getAmplifyDataClientConfig } from '@aws-amplify/backend-function/runtime';
+import { Schema } from "@amplify/data/resource";
+import { Amplify } from "aws-amplify";
+import { env } from '$amplify/env/preSignUp';
+import { AdminGetUserCommand, CognitoIdentityProviderClient } from "@aws-sdk/client-cognito-identity-provider";
+
+type Model<T extends keyof Schema> = Schema[T]['type'];
+type UsernameValidationResult = { isValid: true } | { isValid: false; error: string };
+
+const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(env as unknown as DataClientEnv);
+console.log(resourceConfig);
+Amplify.configure(resourceConfig, libraryOptions);
 
 const client = generateClient<Schema>();
 
-export async function isUsernameTaken(username: string): Promise<boolean> {
+async function getUserData(username: string, userPoolId: string): Promise<Model<'UserData'> | null> {
+    const result = await client.models.UserData.list({
+        filter: {
+            username: { eq: username }
+        }
+    });
+    if (result.errors) {
+        throw new Error(`Failed to get user data: ${result.errors.join('\n')}`);
+    }
+    if (!result.data || !result.data[0]) {
+        return null;
+    }
+    const userData = result.data[0];
     try {
-        const result = await client.models.Username.get(
-            { username },
-            { authMode: 'apiKey' }  // Explicitly use API key authorization
-        );
-        return !!result.data;
+        // Try to get the user from Cognito to verify they exist
+        const cognitoClient = new CognitoIdentityProviderClient();
+        await cognitoClient.send(new AdminGetUserCommand({
+            UserPoolId: userPoolId,
+            Username: userData.userId
+        }));
+        return userData;
+    } catch (error) {
+        // If user doesn't exist in Cognito, delete the record
+        if (error instanceof Error && error.name === 'UserNotFoundException') {
+            await client.models.UserData.delete({ userId: userData.userId });
+            return null;
+        }
+        throw error;
+    }
+}
+
+// Normalize username to lowercase for consistent storage and comparison
+function normalizeUsername(username: string): string {
+    return username.toLowerCase();
+}
+
+export async function isUsernameTaken(username: string, userPoolId: string): Promise<boolean> {
+    try {
+        const normalizedUsername = normalizeUsername(username);
+        const result = await getUserData(normalizedUsername, userPoolId);
+        return !!result;
     } catch (error) {
         console.group('Error checking username:');
         console.error(error);
@@ -20,8 +65,9 @@ export async function isUsernameTaken(username: string): Promise<boolean> {
 
 export async function reserveUsername(username: string, userId: string): Promise<void> {
     try {
-        await client.models.Username.create({
-            username,
+        const normalizedUsername = normalizeUsername(username);
+        await client.models.UserData.create({
+            username: normalizedUsername,
             userId
         });
     } catch (error) {
@@ -30,16 +76,21 @@ export async function reserveUsername(username: string, userId: string): Promise
     }
 }
 
-export async function releaseUsername(username: string): Promise<void> {
+export async function releaseUsername(username: string, userPoolId: string): Promise<void> {
     try {
-        await client.models.Username.delete({ username });
+        const normalizedUsername = normalizeUsername(username);
+        const userData = await getUserData(normalizedUsername, userPoolId);
+        if (!userData) return;
+        await client.models.UserData.delete({
+            userId: userData.userId
+        });
     } catch (error) {
         console.error('Error releasing username:', error);
         throw new Error('Failed to release username');
     }
 }
 
-export function validateUsername(username: string): { isValid: boolean; error?: string } {
+export function validateUsername(username: string): UsernameValidationResult {
     // Username must be 3-20 characters long
     if (username.length < 3 || username.length > 20) {
         return {
@@ -48,16 +99,16 @@ export function validateUsername(username: string): { isValid: boolean; error?: 
         };
     }
 
-    // Only allow letters, numbers, and underscores
-    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+    // Only allow letters, numbers, and underscores (case-insensitive)
+    if (!/^[a-z0-9_]+$/i.test(username)) {
         return {
             isValid: false,
             error: 'Username can only contain letters, numbers, and underscores'
         };
     }
 
-    // Must start with a letter
-    if (!/^[a-zA-Z]/.test(username)) {
+    // Must start with a letter (case-insensitive)
+    if (!/^[a-zA-Z]/i.test(username)) {
         return {
             isValid: false,
             error: 'Username must start with a letter'
@@ -65,4 +116,4 @@ export function validateUsername(username: string): { isValid: boolean; error?: 
     }
 
     return { isValid: true };
-} 
+}

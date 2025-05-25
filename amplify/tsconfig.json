@@ -9,6 +9,15 @@
     "strict": true,
     "skipLibCheck": true,
     "paths": {
+      "@/*": [
+        "../src/*"
+      ],
+      "@amplify/*": [
+        "./*"
+      ],
+      "@amplify/outputs": [
+        "../amplify_outputs.json"
+      ],
       "$amplify/*": [
         "../.amplify/generated/*"
       ]

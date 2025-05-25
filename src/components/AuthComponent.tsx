@@ -2,10 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { getCurrentUser, fetchUserAttributes, deleteUser, signOut } from "aws-amplify/auth";
-import { generateClient } from "aws-amplify/data";
-import type { Schema } from "@amplify/data/resource";
-import { releaseUsername } from "@/utils/username";
-import UsernameSetup from "./UsernameSetup";
 import TopBar from "./TopBar";
 import CustomAuth from "./CustomAuth";
 import styles from './AuthComponent.module.css';
@@ -18,7 +14,6 @@ interface AuthComponentProps {
 
 export default function AuthComponent({ children }: AuthComponentProps) {
     const [user, setUser] = useState<User | null>(null);
-    const [needsUsername, setNeedsUsername] = useState(false);
     const [userAttributes, setUserAttributes] = useState<any>(null);
     const [showAuthenticator, setShowAuthenticator] = useState(false);
 
@@ -33,27 +28,16 @@ export default function AuthComponent({ children }: AuthComponentProps) {
             
             setUser(currentUser);
             setUserAttributes(attributes);
-            
-            // Check if user needs to set up a username
-            if (!attributes.preferred_username) {
-                setNeedsUsername(true);
-            }
         } catch (err) {
             setUser(null);
             setUserAttributes(null);
-            setNeedsUsername(false);
         }
-    }
-
-    function handleUsernameSetupComplete() {
-        setNeedsUsername(false);
-        checkUser(); // Refresh user data
     }
 
     function handleSignOut() {
         setUser(null);
         setUserAttributes(null);
-        setNeedsUsername(false);
+        signOut();
     }
 
     function handleAuthSuccess() {
@@ -62,20 +46,8 @@ export default function AuthComponent({ children }: AuthComponentProps) {
     }
 
     async function handleDeleteAccount() {
-        const username = userAttributes?.preferred_username;
-        const client = generateClient<Schema>();
         
         try {
-            // First try to release the username while we still have a valid token
-            if (username) {
-                try {
-                    await releaseUsername(username);
-                } catch (error) {
-                    console.warn("Failed to release username:", error);
-                    // Non-critical error, we can continue
-                }
-            }
-            
             // Finally delete the user account
             await deleteUser();
             
@@ -86,10 +58,6 @@ export default function AuthComponent({ children }: AuthComponentProps) {
             // Re-throw to let the UI handle the error
             throw error;
         }
-    }
-
-    if (needsUsername) {
-        return <UsernameSetup onComplete={handleUsernameSetupComplete} />;
     }
 
     return (

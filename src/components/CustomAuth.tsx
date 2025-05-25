@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from 'react';
-import { signIn, signUp, confirmSignUp } from 'aws-amplify/auth';
-import { isUsernameTaken, validateUsername, reserveUsername } from '@/utils/username';
+import { useState, useEffect } from 'react';
+import { signIn, signUp, confirmSignUp, getCurrentUser, fetchUserAttributes } from 'aws-amplify/auth';
 import styles from './CustomAuth.module.css';
+
+const preSignUpPrefix = 'PreSignUp failed with error ';
 
 interface CustomAuthProps {
     onClose: () => void;
@@ -29,6 +30,28 @@ export default function CustomAuth({ onClose, onSuccess }: CustomAuthProps) {
     const [error, setError] = useState('');
     const [isCheckingUsername, setIsCheckingUsername] = useState(false);
 
+    // Check if user needs confirmation on mount
+    useEffect(() => {
+        checkUserConfirmationStatus();
+    }, []);
+
+    async function checkUserConfirmationStatus() {
+        try {
+            const currentUser = await getCurrentUser();
+            const attributes = await fetchUserAttributes();
+            // If we have a current user but they're not confirmed, show confirmation UI
+            if (currentUser && !attributes.email_verified) {
+                setNeedsConfirmation(true);
+                setFormData(prev => ({
+                    ...prev,
+                    email: currentUser.username
+                }));
+            }
+        } catch (err) {
+            // Ignore errors here as they likely mean no user is signed in
+        }
+    }
+
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         setError('');
@@ -46,31 +69,10 @@ export default function CustomAuth({ onClose, onSuccess }: CustomAuthProps) {
                 });
                 onSuccess();
             } else if (isSignUp) {
-                // Validate username format
-                const validation = validateUsername(formData.username);
-                if (!validation.isValid) {
-                    setError(validation.error || 'Invalid username');
-                    return;
-                }
-
-                // Check if username is taken
                 setIsCheckingUsername(true);
-                try {
-                    const taken = await isUsernameTaken(formData.username);
-                    if (taken) {
-                        setError('Username is already taken');
-                        setIsCheckingUsername(false);
-                        return;
-                    }
-                } catch (error) {
-                    console.error('Error checking username:', error);
-                    setError('Failed to check username availability');
-                    setIsCheckingUsername(false);
-                    return;
-                }
 
                 // Proceed with sign up
-                const signUpResult = await signUp({
+                await signUp({
                     username: formData.email,
                     password: formData.password,
                     options: {
@@ -81,29 +83,31 @@ export default function CustomAuth({ onClose, onSuccess }: CustomAuthProps) {
                     }
                 });
 
-                // Reserve the username
-                try {
-                    if (!signUpResult.userId) {
-                        throw new Error('Username is required');
-                    }
-                    await reserveUsername(formData.username, signUpResult.userId);
-                } catch (error) {
-                    console.error('Error reserving username:', error);
-                    // We should handle this error, but since the user is already signed up,
-                    // we'll let them proceed and try to fix the username later
-                }
-
                 setIsCheckingUsername(false);
                 setNeedsConfirmation(true);
             } else {
-                await signIn({
-                    username: formData.email,
-                    password: formData.password
-                });
-                onSuccess();
+                try {
+                    await signIn({
+                        username: formData.email,
+                        password: formData.password
+                    });
+                    onSuccess();
+                } catch (err: any) {
+                    // Check if this is an unconfirmed user error
+                    if (err.name === 'UserNotConfirmedException') {
+                        setNeedsConfirmation(true);
+                        setError('Please check your email for a confirmation code');
+                    } else {
+                        throw err; // Re-throw other errors
+                    }
+                }
             }
         } catch (err: any) {
-            setError(err.message || 'An error occurred');
+            let message = err.message || 'An error occurred';
+            if (message.startsWith(preSignUpPrefix)) {
+                message = message.slice(preSignUpPrefix.length, -1);
+            }
+            setError(message);
             setIsCheckingUsername(false);
         }
     }

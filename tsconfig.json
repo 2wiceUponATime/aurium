@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "es5",
+    "target": "es2022",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
@@ -22,6 +22,9 @@
       "@/*": ["./src/*"],
       "@amplify/*": ["./amplify/*"],
       "@amplify/outputs": ["./amplify_outputs.json"],
+      "$amplify/*": [
+        "./.amplify/generated/*"
+      ]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

@@ -1,3 +1,4 @@
+import { preSignUp } from "@amplify/functions/preSignUp/resource";
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 
 const schema = a.schema({
@@ -8,26 +9,28 @@ const schema = a.schema({
       priority: a.integer()
     })
     .authorization((allow) => [
-      allow.authenticated().to(['read', 'update', 'create', 'delete']),
+      allow.owner().to(['read', 'update', 'create', 'delete']),
     ]),
-  Username: a
+  UserData: a
     .model({
+      userId: a.string().required(),
       username: a.string().required(),
-      userId: a.string()
+      aurium: a.float().default(0)
     })
-    .identifier(['username'])
+    .identifier(['userId'])
     .authorization((allow) => [
-      allow.publicApiKey().to(['read']),
-      allow.authenticated().to(['create', 'delete'])
+      allow.publicApiKey().to(['read'])
     ])
-});
+}).authorization((allow) => [
+  allow.resource(preSignUp).to(['query', 'mutate'])
+]);
 
 export type Schema = ClientSchema<typeof schema>;
 
 export const data = defineData({
   schema,
   authorizationModes: {
-    defaultAuthorizationMode: "userPool",
+    defaultAuthorizationMode: "apiKey",
     // Keep API key for development/testing
     apiKeyAuthorizationMode: {
       expiresInDays: 30,
