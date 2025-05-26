@@ -7,10 +7,11 @@ const schema = a.schema({
     .model({
       content: a.string(),
       done: a.boolean(),
-      priority: a.integer()
+      priority: a.integer(),
+      owner: a.string()
     })
     .authorization((allow) => [
-      allow.owner().to(['read', 'update', 'create', 'delete']),
+      allow.owner().to(['read', 'create', 'update', 'delete'])
     ]),
   UserData: a
     .model({
@@ -32,7 +33,7 @@ export type Schema = ClientSchema<typeof schema>;
 export const data = defineData({
   schema,
   authorizationModes: {
-    defaultAuthorizationMode: "apiKey",
+    defaultAuthorizationMode: "userPool",
     // Keep API key for development/testing
     apiKeyAuthorizationMode: {
       expiresInDays: 30,

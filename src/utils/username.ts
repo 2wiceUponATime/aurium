@@ -9,7 +9,6 @@ type Model<T extends keyof Schema> = Schema[T]['type'];
 type UsernameValidationResult = { isValid: true } | { isValid: false; error: string };
 
 const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(env as unknown as DataClientEnv);
-console.log(resourceConfig);
 Amplify.configure(resourceConfig, libraryOptions);
 
 const client = generateClient<Schema>();
